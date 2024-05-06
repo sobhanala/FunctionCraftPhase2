@@ -22,12 +22,21 @@ program returns [Program flProgram]:
     )*
     m = main{$flProgram.setMain($m.mainRet);};
 
-functionDeclaration returns [FunctionDeclaration functionDeclarationRet]: //TODO:construct functionDeclaration node
-    def = DEF  id = IDENTIFIER
+functionDeclaration returns [FunctionDeclaration functionDeclarationRet]:
+    def = DEF id = IDENTIFIER
     f = functionArgumentsDeclaration
     b = body
     END
-    ;
+    {
+        $functionDeclarationRet = new FunctionDeclaration();
+        $functionDeclarationRet.setFunctionName(new Identifier($id.text));
+        $functionDeclarationRet.setArgs($f.argRet);
+        $functionDeclarationRet.setBody($b.bodyRet);
+        $functionDeclarationRet.setLine($def.line);
+    };
+
+
+
 
 functionArgumentsDeclaration returns [ArrayList<VarDeclaration> argRet]:
     {
@@ -80,15 +89,26 @@ functionArgumentsDeclaration returns [ArrayList<VarDeclaration> argRet]:
     )?
     )? RPAR;
 
-patternMatching returns [PatternDeclaration patternRet]://TODO:cunstruct patterDeclaration node
+patternMatching returns [PatternDeclaration patternRet]:
     pat = PATTERN
     patternName = IDENTIFIER
     LPAR targetVar = IDENTIFIER
     RPAR
     (PATTERN_MATCHING_SEPARATOR c = condition
      ASSIGN e = expression
+     {
+         $patternRet.addCondition($c.conditionRet);
+         $patternRet.addReturnExp($e.expRet);
+     }
      )*
-    SEMICOLLON;
+    SEMICOLLON
+    {
+        $patternRet = new PatternDeclaration();
+        $patternRet.setPatternName(new Identifier($patternName.text));
+        $patternRet.setTargetVariable(new Identifier($targetVar.text));
+        $patternRet.setLine($pat.line);
+    };
+
 
 main returns [MainDeclaration mainRet]:
     {
@@ -186,17 +206,30 @@ condition returns [ArrayList<Expression> conditionRet]:
      }
      (RPAR)?)*)*;
 
-putsStatement returns [PutStatement putRet]://TODO:construct putStatement node
+putsStatement returns [PutStatement putRet]:
     p = PUTS LPAR e = expression
-    RPAR SEMICOLLON;
+    RPAR SEMICOLLON
+    {
+        $putRet = new PutStatement($e.expRet);
+        $putRet.setLine($p.line);
+    };
 
-lenStatement returns [LenStatement lenRet]: //TODO:construct lenStatement node
+
+lenStatement returns [LenStatement lenRet]:
     l = LEN LPAR e = expression
-    RPAR;
+    RPAR
+    {
+        $lenRet = new LenStatement($e.expRet);
+        $lenRet.setLine($l.line);
+    };
 
-pushStatement returns [PushStatement pushRet]://TODO:construct pushStatement node
+pushStatement returns [PushStatement pushRet]:
     p = PUSH LPAR e1 = expression COMMA e2 = expression RPAR SEMICOLLON
-    ;
+    {
+        $pushRet = new PushStatement($e1.expRet, $e2.expRet);
+        $pushRet.setLine($p.line);
+    };
+
 
 loopDoStatement returns [LoopDoStatement loopDoRet]:
     l1 = LOOP DO
@@ -221,27 +254,38 @@ loopBody returns [ArrayList<Statement> loopStmts, ArrayList<Expression> loopExps
     r = returnStatement {$loopRetStmt = $r.returnStmtRet;$loopRetStmt.setLine($r.returnStmtRet.getLine());}
     )?;
 
-forStatement returns [ForStatement forStRet]://TODO:construct forStatement node
+forStatement returns [ForStatement forStRet]:
     f = FOR id = IDENTIFIER IN r = range
     l = loopBody
     END
-    ;
+    {
+        $forStRet = new ForStatement(new Identifier($id.text), $r.rangeRet, $l.loopStmts, $l.loopExps, $l.loopRetStmt);
+        $forStRet.setLine($f.line);
+    };
 
-range returns [ArrayList<Expression> rangeRet]://TODO:store all expressions that a range can have in rangeRet array
-    (LPAR e1 = expression
-    DOUBLEDOT e2 = expression
-    RPAR)
-    |
-     (LBRACK (e3 = expression
-    (COMMA e4 = expression
-    )*) RBRACK)
-    |
-     id = IDENTIFIER
-    ;
+range returns [ArrayList<Expression> rangeRet]:
+    (
+        LPAR e1 = expression DOUBLEDOT e2 = expression RPAR
+        {
+            $rangeRet = new ArrayList<Expression>();
+            $rangeRet.add($e1.expRet);
+            $rangeRet.add($e2.expRet);
+        }
+
+        |
+        id = IDENTIFIER
+        {
+            $rangeRet = new ArrayList<Expression>();
+            $rangeRet.add(new Identifier($id.text));
+        }
+    );
 
 
-matchPatternStatement returns [MatchPatternStatement matchPatRet]://TODO:construct match pattern node
+matchPatternStatement returns [MatchPatternStatement matchPatRet]:
     id = IDENTIFIER DOT m = MATCH LPAR e = expression RPAR
+    {
+        $matchPatRet = new MatchPatternStatement(new Identifier($id.text), $e.expRet);
+    }
     ;
 
 chopStatement returns [ChopStatement chopRet]:
@@ -316,7 +360,11 @@ body returns [ArrayList<Statement> bodyRet]:
 
 expression returns [Expression expRet]:
     e1 = expression a = APPEND e2 = eqaulityExpression
-    //TODO:construct append expression node.the left most expression is appendee and others are appended.
+    {
+        AppendExpression appendExp = new AppendExpression($e1.expRet);
+        appendExp.addAppendedExpression($e2.expRet);
+        $expRet = appendExp;
+    }
     | e3 = eqaulityExpression {$expRet = $e3.expRet;};
 
 
